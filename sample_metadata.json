@@ -1,0 +1,931 @@
+{
+  "_readme": {
+    "title": "HR Domain \u2014 Column Lineage Metadata",
+    "modes": {
+      "auto_parse": "Views/SPs have real sql/body_sql \u2014 lineage is extracted automatically",
+      "explicit": "lineage[] array provides hand-crafted edges (merged with auto-parsed ones)",
+      "json_only": "Remove sql/body_sql fields and use only lineage[] for pure explicit mode"
+    },
+    "edge_types": [
+      "direct",
+      "computed",
+      "aggregate",
+      "concat",
+      "case"
+    ]
+  },
+  "database_name": "HR Domain (JSON Metadata)",
+  "tables": [
+    {
+      "name": "regions",
+      "columns": [
+        {
+          "name": "region_id",
+          "data_type": "INTEGER",
+          "is_pk": true
+        },
+        {
+          "name": "region_name",
+          "data_type": "TEXT",
+          "is_pk": false
+        }
+      ]
+    },
+    {
+      "name": "countries",
+      "columns": [
+        {
+          "name": "country_id",
+          "data_type": "TEXT",
+          "is_pk": true
+        },
+        {
+          "name": "country_name",
+          "data_type": "TEXT",
+          "is_pk": false
+        },
+        {
+          "name": "region_id",
+          "data_type": "INTEGER",
+          "is_pk": false
+        }
+      ]
+    },
+    {
+      "name": "locations",
+      "columns": [
+        {
+          "name": "location_id",
+          "data_type": "INTEGER",
+          "is_pk": true
+        },
+        {
+          "name": "street_address",
+          "data_type": "TEXT",
+          "is_pk": false
+        },
+        {
+          "name": "postal_code",
+          "data_type": "TEXT",
+          "is_pk": false
+        },
+        {
+          "name": "city",
+          "data_type": "TEXT",
+          "is_pk": false
+        },
+        {
+          "name": "state_province",
+          "data_type": "TEXT",
+          "is_pk": false
+        },
+        {
+          "name": "country_id",
+          "data_type": "TEXT",
+          "is_pk": false
+        }
+      ]
+    },
+    {
+      "name": "departments",
+      "columns": [
+        {
+          "name": "department_id",
+          "data_type": "INTEGER",
+          "is_pk": true
+        },
+        {
+          "name": "department_name",
+          "data_type": "TEXT",
+          "is_pk": false
+        },
+        {
+          "name": "manager_id",
+          "data_type": "INTEGER",
+          "is_pk": false
+        },
+        {
+          "name": "location_id",
+          "data_type": "INTEGER",
+          "is_pk": false
+        }
+      ]
+    },
+    {
+      "name": "jobs",
+      "columns": [
+        {
+          "name": "job_id",
+          "data_type": "TEXT",
+          "is_pk": true
+        },
+        {
+          "name": "job_title",
+          "data_type": "TEXT",
+          "is_pk": false
+        },
+        {
+          "name": "min_salary",
+          "data_type": "REAL",
+          "is_pk": false
+        },
+        {
+          "name": "max_salary",
+          "data_type": "REAL",
+          "is_pk": false
+        }
+      ]
+    },
+    {
+      "name": "employees",
+      "columns": [
+        {
+          "name": "employee_id",
+          "data_type": "INTEGER",
+          "is_pk": true
+        },
+        {
+          "name": "first_name",
+          "data_type": "TEXT",
+          "is_pk": false
+        },
+        {
+          "name": "last_name",
+          "data_type": "TEXT",
+          "is_pk": false
+        },
+        {
+          "name": "email",
+          "data_type": "TEXT",
+          "is_pk": false
+        },
+        {
+          "name": "phone_number",
+          "data_type": "TEXT",
+          "is_pk": false
+        },
+        {
+          "name": "hire_date",
+          "data_type": "TEXT",
+          "is_pk": false
+        },
+        {
+          "name": "job_id",
+          "data_type": "TEXT",
+          "is_pk": false
+        },
+        {
+          "name": "salary",
+          "data_type": "REAL",
+          "is_pk": false
+        },
+        {
+          "name": "commission_pct",
+          "data_type": "REAL",
+          "is_pk": false
+        },
+        {
+          "name": "manager_id",
+          "data_type": "INTEGER",
+          "is_pk": false
+        },
+        {
+          "name": "department_id",
+          "data_type": "INTEGER",
+          "is_pk": false
+        }
+      ]
+    },
+    {
+      "name": "job_history",
+      "columns": [
+        {
+          "name": "employee_id",
+          "data_type": "INTEGER",
+          "is_pk": true
+        },
+        {
+          "name": "start_date",
+          "data_type": "TEXT",
+          "is_pk": true
+        },
+        {
+          "name": "end_date",
+          "data_type": "TEXT",
+          "is_pk": false
+        },
+        {
+          "name": "job_id",
+          "data_type": "TEXT",
+          "is_pk": false
+        },
+        {
+          "name": "department_id",
+          "data_type": "INTEGER",
+          "is_pk": false
+        }
+      ]
+    }
+  ],
+  "views": [
+    {
+      "name": "v_employee_details",
+      "sql": "CREATE VIEW v_employee_details AS\nSELECT\n    e.employee_id                                            AS employee_id,\n    e.first_name                                             AS first_name,\n    e.last_name                                              AS last_name,\n    e.first_name || ' ' || e.last_name                       AS full_name,\n    e.email                                                  AS email,\n    e.hire_date                                              AS hire_date,\n    e.salary                                                 AS salary,\n    e.commission_pct                                         AS commission_pct,\n    ROUND(e.salary * (1 + COALESCE(e.commission_pct, 0)), 2) AS total_compensation,\n    j.job_title                                              AS job_title,\n    d.department_name                                        AS department_name,\n    l.city                                                   AS work_city,\n    l.country_id                                             AS work_country\nFROM employees   e\nJOIN jobs        j ON e.job_id        = j.job_id\nJOIN departments d ON e.department_id = d.department_id\nJOIN locations   l ON d.location_id   = l.location_id",
+      "columns": [
+        {
+          "name": "employee_id",
+          "data_type": "INTEGER",
+          "is_pk": false
+        },
+        {
+          "name": "first_name",
+          "data_type": "TEXT",
+          "is_pk": false
+        },
+        {
+          "name": "last_name",
+          "data_type": "TEXT",
+          "is_pk": false
+        },
+        {
+          "name": "full_name",
+          "data_type": "ANY",
+          "is_pk": false
+        },
+        {
+          "name": "email",
+          "data_type": "TEXT",
+          "is_pk": false
+        },
+        {
+          "name": "hire_date",
+          "data_type": "TEXT",
+          "is_pk": false
+        },
+        {
+          "name": "salary",
+          "data_type": "REAL",
+          "is_pk": false
+        },
+        {
+          "name": "commission_pct",
+          "data_type": "REAL",
+          "is_pk": false
+        },
+        {
+          "name": "total_compensation",
+          "data_type": "ANY",
+          "is_pk": false
+        },
+        {
+          "name": "job_title",
+          "data_type": "TEXT",
+          "is_pk": false
+        },
+        {
+          "name": "department_name",
+          "data_type": "TEXT",
+          "is_pk": false
+        },
+        {
+          "name": "work_city",
+          "data_type": "TEXT",
+          "is_pk": false
+        },
+        {
+          "name": "work_country",
+          "data_type": "TEXT",
+          "is_pk": false
+        }
+      ]
+    },
+    {
+      "name": "v_salary_grades",
+      "sql": "CREATE VIEW v_salary_grades AS\nSELECT\n    e.employee_id                                                AS employee_id,\n    e.last_name                                                  AS last_name,\n    e.salary                                                     AS current_salary,\n    j.min_salary                                                 AS grade_min,\n    j.max_salary                                                 AS grade_max,\n    ROUND((e.salary - j.min_salary) / (j.max_salary - j.min_salary) * 100, 1) AS salary_pct_of_range,\n    CASE\n        WHEN e.salary < j.min_salary * 1.1 THEN 'Low'\n        WHEN e.salary > j.max_salary * 0.9 THEN 'High'\n        ELSE 'Mid'\n    END                                                          AS salary_band,\n    j.job_title                                                  AS job_title\nFROM employees e\nJOIN jobs      j ON e.job_id = j.job_id",
+      "columns": [
+        {
+          "name": "employee_id",
+          "data_type": "INTEGER",
+          "is_pk": false
+        },
+        {
+          "name": "last_name",
+          "data_type": "TEXT",
+          "is_pk": false
+        },
+        {
+          "name": "current_salary",
+          "data_type": "REAL",
+          "is_pk": false
+        },
+        {
+          "name": "grade_min",
+          "data_type": "REAL",
+          "is_pk": false
+        },
+        {
+          "name": "grade_max",
+          "data_type": "REAL",
+          "is_pk": false
+        },
+        {
+          "name": "salary_pct_of_range",
+          "data_type": "ANY",
+          "is_pk": false
+        },
+        {
+          "name": "salary_band",
+          "data_type": "ANY",
+          "is_pk": false
+        },
+        {
+          "name": "job_title",
+          "data_type": "TEXT",
+          "is_pk": false
+        }
+      ]
+    },
+    {
+      "name": "v_department_headcount",
+      "sql": "CREATE VIEW v_department_headcount AS\nSELECT\n    d.department_id                  AS department_id,\n    d.department_name                AS department_name,\n    l.city                           AS city,\n    c.country_name                   AS country_name,\n    r.region_name                    AS region_name,\n    COUNT(e.employee_id)             AS headcount,\n    ROUND(AVG(e.salary), 2)          AS avg_salary,\n    MIN(e.salary)                    AS min_salary,\n    MAX(e.salary)                    AS max_salary,\n    SUM(e.salary)                    AS total_payroll\nFROM departments d\nJOIN locations   l ON d.location_id   = l.location_id\nJOIN countries   c ON l.country_id    = c.country_id\nJOIN regions     r ON c.region_id     = r.region_id\nLEFT JOIN employees e ON e.department_id = d.department_id\nGROUP BY d.department_id, d.department_name, l.city, c.country_name, r.region_name",
+      "columns": [
+        {
+          "name": "department_id",
+          "data_type": "INTEGER",
+          "is_pk": false
+        },
+        {
+          "name": "department_name",
+          "data_type": "TEXT",
+          "is_pk": false
+        },
+        {
+          "name": "city",
+          "data_type": "TEXT",
+          "is_pk": false
+        },
+        {
+          "name": "country_name",
+          "data_type": "TEXT",
+          "is_pk": false
+        },
+        {
+          "name": "region_name",
+          "data_type": "TEXT",
+          "is_pk": false
+        },
+        {
+          "name": "headcount",
+          "data_type": "ANY",
+          "is_pk": false
+        },
+        {
+          "name": "avg_salary",
+          "data_type": "ANY",
+          "is_pk": false
+        },
+        {
+          "name": "min_salary",
+          "data_type": "ANY",
+          "is_pk": false
+        },
+        {
+          "name": "max_salary",
+          "data_type": "ANY",
+          "is_pk": false
+        },
+        {
+          "name": "total_payroll",
+          "data_type": "ANY",
+          "is_pk": false
+        }
+      ]
+    },
+    {
+      "name": "v_high_earners",
+      "sql": "CREATE VIEW v_high_earners AS\nSELECT\n    ved.employee_id            AS employee_id,\n    ved.full_name              AS full_name,\n    ved.job_title              AS job_title,\n    ved.department_name        AS department_name,\n    ved.work_city              AS work_city,\n    ved.salary                 AS salary,\n    sg.salary_band             AS salary_band,\n    sg.grade_max               AS grade_max,\n    sg.salary_pct_of_range     AS salary_pct_of_range,\n    ROUND(ved.salary * 12, 2)  AS annual_salary\nFROM v_employee_details ved\nJOIN v_salary_grades    sg  ON ved.employee_id = sg.employee_id\nWHERE sg.salary_band = 'High'",
+      "columns": [
+        {
+          "name": "employee_id",
+          "data_type": "INTEGER",
+          "is_pk": false
+        },
+        {
+          "name": "full_name",
+          "data_type": "ANY",
+          "is_pk": false
+        },
+        {
+          "name": "job_title",
+          "data_type": "TEXT",
+          "is_pk": false
+        },
+        {
+          "name": "department_name",
+          "data_type": "TEXT",
+          "is_pk": false
+        },
+        {
+          "name": "work_city",
+          "data_type": "TEXT",
+          "is_pk": false
+        },
+        {
+          "name": "salary",
+          "data_type": "REAL",
+          "is_pk": false
+        },
+        {
+          "name": "salary_band",
+          "data_type": "ANY",
+          "is_pk": false
+        },
+        {
+          "name": "grade_max",
+          "data_type": "REAL",
+          "is_pk": false
+        },
+        {
+          "name": "salary_pct_of_range",
+          "data_type": "ANY",
+          "is_pk": false
+        },
+        {
+          "name": "annual_salary",
+          "data_type": "ANY",
+          "is_pk": false
+        }
+      ]
+    }
+  ],
+  "stored_procedures": [
+    {
+      "name": "sp_get_employee_report",
+      "body_sql": "SELECT\n    e.employee_id                                             AS employee_id,\n    e.first_name                                              AS first_name,\n    e.last_name                                               AS last_name,\n    e.email                                                   AS email,\n    e.salary                                                  AS salary,\n    e.commission_pct                                          AS commission_pct,\n    ROUND(e.salary * (1 + COALESCE(e.commission_pct, 0)), 2)  AS total_compensation,\n    j.job_title                                               AS job_title,\n    j.min_salary                                              AS job_min_salary,\n    j.max_salary                                              AS job_max_salary,\n    d.department_name                                         AS department_name,\n    l.city                                                    AS city,\n    l.country_id                                              AS country_id,\n    CASE\n        WHEN e.salary < j.min_salary * 1.1 THEN 'Low'\n        WHEN e.salary > j.max_salary * 0.9 THEN 'High'\n        ELSE 'Mid'\n    END                                                       AS salary_band\nFROM employees   e\nJOIN jobs        j ON e.job_id        = j.job_id\nJOIN departments d ON e.department_id = d.department_id\nJOIN locations   l ON d.location_id   = l.location_id\nWHERE d.department_id = :p_dept_id",
+      "columns": [
+        {
+          "name": "employee_id",
+          "data_type": "ANY",
+          "is_pk": false
+        },
+        {
+          "name": "first_name",
+          "data_type": "ANY",
+          "is_pk": false
+        },
+        {
+          "name": "last_name",
+          "data_type": "ANY",
+          "is_pk": false
+        },
+        {
+          "name": "email",
+          "data_type": "ANY",
+          "is_pk": false
+        },
+        {
+          "name": "salary",
+          "data_type": "ANY",
+          "is_pk": false
+        },
+        {
+          "name": "commission_pct",
+          "data_type": "ANY",
+          "is_pk": false
+        },
+        {
+          "name": "total_compensation",
+          "data_type": "ANY",
+          "is_pk": false
+        },
+        {
+          "name": "job_title",
+          "data_type": "ANY",
+          "is_pk": false
+        },
+        {
+          "name": "job_min_salary",
+          "data_type": "ANY",
+          "is_pk": false
+        },
+        {
+          "name": "job_max_salary",
+          "data_type": "ANY",
+          "is_pk": false
+        },
+        {
+          "name": "department_name",
+          "data_type": "ANY",
+          "is_pk": false
+        },
+        {
+          "name": "city",
+          "data_type": "ANY",
+          "is_pk": false
+        },
+        {
+          "name": "country_id",
+          "data_type": "ANY",
+          "is_pk": false
+        },
+        {
+          "name": "salary_band",
+          "data_type": "ANY",
+          "is_pk": false
+        }
+      ]
+    },
+    {
+      "name": "sp_department_summary",
+      "body_sql": "SELECT\n    d.department_id               AS department_id,\n    d.department_name             AS department_name,\n    r.region_name                 AS region_name,\n    c.country_name                AS country_name,\n    l.city                        AS city,\n    COUNT(DISTINCT e.employee_id) AS headcount,\n    COUNT(DISTINCT e.job_id)      AS distinct_jobs,\n    ROUND(AVG(e.salary), 2)       AS avg_salary,\n    SUM(e.salary)                 AS total_payroll,\n    MIN(e.hire_date)              AS earliest_hire,\n    MAX(e.hire_date)              AS latest_hire\nFROM departments d\nJOIN locations   l ON d.location_id   = l.location_id\nJOIN countries   c ON l.country_id    = c.country_id\nJOIN regions     r ON c.region_id     = r.region_id\nLEFT JOIN employees e ON e.department_id = d.department_id\nWHERE r.region_id = :p_region_id\nGROUP BY d.department_id, d.department_name, r.region_name, c.country_name, l.city",
+      "columns": [
+        {
+          "name": "department_id",
+          "data_type": "ANY",
+          "is_pk": false
+        },
+        {
+          "name": "department_name",
+          "data_type": "ANY",
+          "is_pk": false
+        },
+        {
+          "name": "region_name",
+          "data_type": "ANY",
+          "is_pk": false
+        },
+        {
+          "name": "country_name",
+          "data_type": "ANY",
+          "is_pk": false
+        },
+        {
+          "name": "city",
+          "data_type": "ANY",
+          "is_pk": false
+        },
+        {
+          "name": "headcount",
+          "data_type": "ANY",
+          "is_pk": false
+        },
+        {
+          "name": "distinct_jobs",
+          "data_type": "ANY",
+          "is_pk": false
+        },
+        {
+          "name": "avg_salary",
+          "data_type": "ANY",
+          "is_pk": false
+        },
+        {
+          "name": "total_payroll",
+          "data_type": "ANY",
+          "is_pk": false
+        },
+        {
+          "name": "earliest_hire",
+          "data_type": "ANY",
+          "is_pk": false
+        },
+        {
+          "name": "latest_hire",
+          "data_type": "ANY",
+          "is_pk": false
+        }
+      ]
+    }
+  ],
+  "lineage": [
+    {
+      "source_object": "employees",
+      "source_column": "employee_id",
+      "target_object": "v_employee_details",
+      "target_column": "employee_id",
+      "edge_type": "direct"
+    },
+    {
+      "source_object": "employees",
+      "source_column": "first_name",
+      "target_object": "v_employee_details",
+      "target_column": "first_name",
+      "edge_type": "direct"
+    },
+    {
+      "source_object": "employees",
+      "source_column": "last_name",
+      "target_object": "v_employee_details",
+      "target_column": "last_name",
+      "edge_type": "direct"
+    },
+    {
+      "source_object": "employees",
+      "source_column": "first_name",
+      "target_object": "v_employee_details",
+      "target_column": "full_name",
+      "edge_type": "concat"
+    },
+    {
+      "source_object": "employees",
+      "source_column": "last_name",
+      "target_object": "v_employee_details",
+      "target_column": "full_name",
+      "edge_type": "concat"
+    },
+    {
+      "source_object": "employees",
+      "source_column": "email",
+      "target_object": "v_employee_details",
+      "target_column": "email",
+      "edge_type": "direct"
+    },
+    {
+      "source_object": "employees",
+      "source_column": "hire_date",
+      "target_object": "v_employee_details",
+      "target_column": "hire_date",
+      "edge_type": "direct"
+    },
+    {
+      "source_object": "employees",
+      "source_column": "salary",
+      "target_object": "v_employee_details",
+      "target_column": "salary",
+      "edge_type": "direct"
+    },
+    {
+      "source_object": "employees",
+      "source_column": "commission_pct",
+      "target_object": "v_employee_details",
+      "target_column": "commission_pct",
+      "edge_type": "direct"
+    },
+    {
+      "source_object": "employees",
+      "source_column": "salary",
+      "target_object": "v_employee_details",
+      "target_column": "total_compensation",
+      "edge_type": "computed"
+    },
+    {
+      "source_object": "employees",
+      "source_column": "commission_pct",
+      "target_object": "v_employee_details",
+      "target_column": "total_compensation",
+      "edge_type": "computed"
+    },
+    {
+      "source_object": "jobs",
+      "source_column": "job_title",
+      "target_object": "v_employee_details",
+      "target_column": "job_title",
+      "edge_type": "direct"
+    },
+    {
+      "source_object": "departments",
+      "source_column": "department_name",
+      "target_object": "v_employee_details",
+      "target_column": "department_name",
+      "edge_type": "direct"
+    },
+    {
+      "source_object": "locations",
+      "source_column": "city",
+      "target_object": "v_employee_details",
+      "target_column": "work_city",
+      "edge_type": "direct"
+    },
+    {
+      "source_object": "locations",
+      "source_column": "country_id",
+      "target_object": "v_employee_details",
+      "target_column": "work_country",
+      "edge_type": "direct"
+    },
+    {
+      "source_object": "employees",
+      "source_column": "employee_id",
+      "target_object": "v_salary_grades",
+      "target_column": "employee_id",
+      "edge_type": "direct"
+    },
+    {
+      "source_object": "employees",
+      "source_column": "last_name",
+      "target_object": "v_salary_grades",
+      "target_column": "last_name",
+      "edge_type": "direct"
+    },
+    {
+      "source_object": "employees",
+      "source_column": "salary",
+      "target_object": "v_salary_grades",
+      "target_column": "current_salary",
+      "edge_type": "direct"
+    },
+    {
+      "source_object": "jobs",
+      "source_column": "min_salary",
+      "target_object": "v_salary_grades",
+      "target_column": "grade_min",
+      "edge_type": "direct"
+    },
+    {
+      "source_object": "jobs",
+      "source_column": "max_salary",
+      "target_object": "v_salary_grades",
+      "target_column": "grade_max",
+      "edge_type": "direct"
+    },
+    {
+      "source_object": "employees",
+      "source_column": "salary",
+      "target_object": "v_salary_grades",
+      "target_column": "salary_pct_of_range",
+      "edge_type": "computed"
+    },
+    {
+      "source_object": "jobs",
+      "source_column": "min_salary",
+      "target_object": "v_salary_grades",
+      "target_column": "salary_pct_of_range",
+      "edge_type": "computed"
+    },
+    {
+      "source_object": "jobs",
+      "source_column": "max_salary",
+      "target_object": "v_salary_grades",
+      "target_column": "salary_pct_of_range",
+      "edge_type": "computed"
+    },
+    {
+      "source_object": "employees",
+      "source_column": "salary",
+      "target_object": "v_salary_grades",
+      "target_column": "salary_band",
+      "edge_type": "case"
+    },
+    {
+      "source_object": "jobs",
+      "source_column": "min_salary",
+      "target_object": "v_salary_grades",
+      "target_column": "salary_band",
+      "edge_type": "case"
+    },
+    {
+      "source_object": "jobs",
+      "source_column": "max_salary",
+      "target_object": "v_salary_grades",
+      "target_column": "salary_band",
+      "edge_type": "case"
+    },
+    {
+      "source_object": "jobs",
+      "source_column": "job_title",
+      "target_object": "v_salary_grades",
+      "target_column": "job_title",
+      "edge_type": "direct"
+    },
+    {
+      "source_object": "departments",
+      "source_column": "department_id",
+      "target_object": "v_department_headcount",
+      "target_column": "department_id",
+      "edge_type": "direct"
+    },
+    {
+      "source_object": "departments",
+      "source_column": "department_name",
+      "target_object": "v_department_headcount",
+      "target_column": "department_name",
+      "edge_type": "direct"
+    },
+    {
+      "source_object": "locations",
+      "source_column": "city",
+      "target_object": "v_department_headcount",
+      "target_column": "city",
+      "edge_type": "direct"
+    },
+    {
+      "source_object": "countries",
+      "source_column": "country_name",
+      "target_object": "v_department_headcount",
+      "target_column": "country_name",
+      "edge_type": "direct"
+    },
+    {
+      "source_object": "regions",
+      "source_column": "region_name",
+      "target_object": "v_department_headcount",
+      "target_column": "region_name",
+      "edge_type": "direct"
+    },
+    {
+      "source_object": "employees",
+      "source_column": "employee_id",
+      "target_object": "v_department_headcount",
+      "target_column": "headcount",
+      "edge_type": "aggregate"
+    },
+    {
+      "source_object": "employees",
+      "source_column": "salary",
+      "target_object": "v_department_headcount",
+      "target_column": "avg_salary",
+      "edge_type": "aggregate"
+    },
+    {
+      "source_object": "employees",
+      "source_column": "salary",
+      "target_object": "v_department_headcount",
+      "target_column": "min_salary",
+      "edge_type": "aggregate"
+    },
+    {
+      "source_object": "employees",
+      "source_column": "salary",
+      "target_object": "v_department_headcount",
+      "target_column": "max_salary",
+      "edge_type": "aggregate"
+    },
+    {
+      "source_object": "employees",
+      "source_column": "salary",
+      "target_object": "v_department_headcount",
+      "target_column": "total_payroll",
+      "edge_type": "aggregate"
+    },
+    {
+      "source_object": "v_employee_details",
+      "source_column": "employee_id",
+      "target_object": "v_high_earners",
+      "target_column": "employee_id",
+      "edge_type": "direct"
+    },
+    {
+      "source_object": "v_employee_details",
+      "source_column": "full_name",
+      "target_object": "v_high_earners",
+      "target_column": "full_name",
+      "edge_type": "direct"
+    },
+    {
+      "source_object": "v_employee_details",
+      "source_column": "job_title",
+      "target_object": "v_high_earners",
+      "target_column": "job_title",
+      "edge_type": "direct"
+    },
+    {
+      "source_object": "v_employee_details",
+      "source_column": "department_name",
+      "target_object": "v_high_earners",
+      "target_column": "department_name",
+      "edge_type": "direct"
+    },
+    {
+      "source_object": "v_employee_details",
+      "source_column": "work_city",
+      "target_object": "v_high_earners",
+      "target_column": "work_city",
+      "edge_type": "direct"
+    },
+    {
+      "source_object": "v_employee_details",
+      "source_column": "salary",
+      "target_object": "v_high_earners",
+      "target_column": "salary",
+      "edge_type": "direct"
+    },
+    {
+      "source_object": "v_employee_details",
+      "source_column": "salary",
+      "target_object": "v_high_earners",
+      "target_column": "annual_salary",
+      "edge_type": "computed"
+    },
+    {
+      "source_object": "v_salary_grades",
+      "source_column": "salary_band",
+      "target_object": "v_high_earners",
+      "target_column": "salary_band",
+      "edge_type": "direct"
+    },
+    {
+      "source_object": "v_salary_grades",
+      "source_column": "grade_max",
+      "target_object": "v_high_earners",
+      "target_column": "grade_max",
+      "edge_type": "direct"
+    },
+    {
+      "source_object": "v_salary_grades",
+      "source_column": "salary_pct_of_range",
+      "target_object": "v_high_earners",
+      "target_column": "salary_pct_of_range",
+      "edge_type": "direct"
+    }
+  ]
+}

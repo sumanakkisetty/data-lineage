@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Column Lineage Diagram</title>
+<!-- Apply saved theme before render to prevent flash -->
+<script>
+  const _t = localStorage.getItem('cl-theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', _t);
+</script>
+<link rel="stylesheet" href="/static/css/diagram.css">
+</head>
+<body>
+
+<!-- ── Toolbar ──────────────────────────────────────────────── -->
+<div class="toolbar">
+  <h1>&#128279; Column Lineage</h1>
+
+  <span class="db-label">Source:</span>
+  <select id="db-selector"></select>
+  <button id="btn-connect" class="btn-icon" title="Add / manage database connections">&#9881;</button>
+
+  <button id="btn-generate" class="btn-primary">&#9654; Generate</button>
+
+  <div class="toolbar-sep"></div>
+
+  <input id="search-input" type="text" class="search-input" placeholder="&#128269; Search…">
+  <button id="btn-reset" class="btn-secondary">&#8635; Fit</button>
+  <button id="btn-export" class="btn-secondary" disabled>&#8681; Export HTML</button>
+  <button id="btn-theme" class="btn-icon" title="Toggle dark / light theme">&#9728;</button>
+
+  <span id="meta-badge" style="font-size:11px;color:#475569;white-space:nowrap;margin-left:4px"></span>
+</div>
+
+<!-- ── Lineage Info Bar ──────────────────────────────────────── -->
+<div id="lineage-bar" class="lb-empty">
+  <span class="lb-hint">&#128073; Click any column in the diagram to trace its lineage</span>
+  <div class="lb-content">
+    <div class="lb-selected">
+      <button class="lb-clear-btn" id="lb-clear" title="Clear selection (Esc)">&#10005;</button>
+      <span class="lb-badge" id="lb-badge"></span>
+      <span class="lb-obj" id="lb-obj"></span><span class="lb-dot">.</span>
+      <span class="lb-col" id="lb-col"></span>
+      <span class="lb-dtype" id="lb-dtype"></span>
+    </div>
+    <div class="lb-divider"></div>
+    <div class="lb-group">
+      <div class="lb-group-label">&#9650; Sources</div>
+      <div class="lb-chips" id="lb-sources"></div>
+    </div>
+    <div class="lb-divider"></div>
+    <div class="lb-group">
+      <div class="lb-group-label">&#9660; Targets</div>
+      <div class="lb-chips" id="lb-targets"></div>
+    </div>
+    <div class="lb-divider"></div>
+    <div class="lb-total" id="lb-total"></div>
+  </div>
+</div>
+
+<!-- ── Canvas ───────────────────────────────────────────────── -->
+<svg id="diagram-svg"></svg>
+
+<!-- ── Zoom mini-controls ───────────────────────────────────── -->
+<div class="zoom-controls">
+  <button title="Zoom in"  onclick="DiagramEngine.zoomBy(1.3)">+</button>
+  <button title="Zoom out" onclick="DiagramEngine.zoomBy(0.77)">−</button>
+</div>
+
+<!-- ── Tooltip / Loading / Status ───────────────────────────── -->
+<div id="tooltip" class="tooltip"></div>
+<div id="loading"><div class="spinner"></div><p>Parsing metadata…</p></div>
+<div id="status-bar"></div>
+
+<!-- ══════════════════════════════════════════════════════════
+     CONNECTION MODAL
+══════════════════════════════════════════════════════════════ -->
+<div id="conn-modal" class="modal-overlay" style="display:none" role="dialog" aria-modal="true">
+  <div class="modal-box">
+
+    <div class="modal-header">
+      <h2>&#128268; Add Database Connection</h2>
+      <button class="modal-close" id="modal-close" title="Close">&#10005;</button>
+    </div>
+
+    <!-- Type tabs -->
+    <div class="conn-tabs">
+      <button class="conn-tab active" data-tab="sqlite">SQLite</button>
+      <button class="conn-tab"        data-tab="sqlserver">SQL Server</button>
+      <button class="conn-tab"        data-tab="json">JSON Metadata</button>
+    </div>
+
+    <!-- ── SQLite form ──────────────────────────────────────── -->
+    <div class="conn-form active" id="tab-sqlite">
+      <div class="form-group">
+        <label>Connection Name</label>
+        <input type="text" id="sqlite-name" placeholder="My SQLite Database">
+      </div>
+      <div class="form-group">
+        <label>Database File Path</label>
+        <input type="text" id="sqlite-path" placeholder="C:\path\to\database.db  or  /path/to/db.sqlite">
+      </div>
+      <p style="font-size:11px;color:var(--text-faint);margin:0">
+        Must be an existing <code>.db</code> / <code>.sqlite</code> file accessible from the server.
+      </p>
+    </div>
+
+    <!-- ── SQL Server form ─────────────────────────────────── -->
+    <div class="conn-form" id="tab-sqlserver">
+      <div class="form-group">
+        <label>Connection Name</label>
+        <input type="text" id="ss-name" placeholder="Production DW">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Server / Host</label>
+          <input type="text" id="ss-server" placeholder="localhost or 192.168.1.10">
+        </div>
+        <div class="form-group narrow">
+          <label>Port</label>
+          <input type="number" id="ss-port" value="1433">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Database</label>
+          <input type="text" id="ss-database" placeholder="AdventureWorks">
+        </div>
+        <div class="form-group narrow">
+          <label>Schema</label>
+          <input type="text" id="ss-schema" value="dbo">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Authentication</label>
+        <div class="radio-group">
+          <label><input type="radio" name="ss-auth" value="sql" checked> SQL Server Auth</label>
+          <label><input type="radio" name="ss-auth" value="windows"> Windows Auth</label>
+        </div>
+      </div>
+      <div class="form-row" id="ss-creds">
+        <div class="form-group">
+          <label>Username</label>
+          <input type="text" id="ss-username" placeholder="sa">
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" id="ss-password" placeholder="••••••••">
+        </div>
+      </div>
+      <p style="font-size:11px;color:var(--text-faint);margin:0">
+        Requires <code>pyodbc</code> and an ODBC driver installed on the server.
+        Run: <code>pip install pyodbc</code>
+      </p>
+    </div>
+
+    <!-- ── JSON Metadata form ──────────────────────────────── -->
+    <div class="conn-form" id="tab-json">
+      <div class="form-group">
+        <label>Connection Name <span style="font-weight:400;text-transform:none">(auto-detected from JSON)</span></label>
+        <input type="text" id="json-name" placeholder="Leave blank to use name from file">
+      </div>
+      <div class="json-drop" id="json-drop">
+        <div>
+          <div style="font-size:28px">&#128196;</div>
+          <p>Drop <code>.json</code> file here<br>or <span class="json-link" id="json-pick">click to browse</span></p>
+          <input type="file" id="json-file-input" accept=".json" style="display:none">
+          <div class="json-file-name" id="json-file-name"></div>
+        </div>
+      </div>
+      <div class="json-format-hint">
+        <strong>Expected format</strong>
+        <span class="json-format-link" id="dl-sample">Download template ↓</span>
+        <pre class="json-schema">{ "database_name": "...",
+  "tables": [{ "name": "tbl", "columns": [{ "name": "col", "data_type": "INT", "is_pk": true }] }],
+  "views":  [{ "name": "vw",  "sql": "SELECT t.col AS col FROM tbl t" }],
+  "stored_procedures": [{ "name": "sp", "body_sql": "SELECT ..." }],
+  "lineage": [{ "source_object": "tbl", "source_column": "col",
+                "target_object": "vw",  "target_column": "col", "edge_type": "direct" }]
+}</pre>
+        <p style="margin:6px 0 0;font-size:10px;color:var(--text-faint)">
+          Provide <code>sql</code> / <code>body_sql</code> for auto-parsing,
+          OR fill <code>lineage[]</code> for explicit mapping (both supported simultaneously).
+        </p>
+      </div>
+    </div>
+
+    <!-- ── Footer ──────────────────────────────────────────── -->
+    <div class="modal-footer">
+      <span class="conn-status" id="conn-status"></span>
+      <button class="btn-secondary" id="btn-test">Test</button>
+      <button class="btn-primary"   id="btn-do-connect">Connect</button>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── D3 + Engine ───────────────────────────────────────────── -->
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="/static/js/diagram.js"></script>
+
+<!-- ── App JS ────────────────────────────────────────────────── -->
+<script>
+const $ = id => document.getElementById(id);
+const TYPE_COLORS = { table:'#1D4ED8', view:'#15803D', procedure:'#C2410C' };
+
+// ── Theme toggle ──────────────────────────────────────────────
+function applyTheme(t) {
+  document.documentElement.setAttribute('data-theme', t);
+  localStorage.setItem('cl-theme', t);
+  $('btn-theme').textContent = t === 'dark' ? '\u2600' : '\u263D';
+  $('btn-theme').title       = t === 'dark' ? 'Switch to light theme' : 'Switch to dark theme';
+  DiagramEngine.reapplyColors();
+}
+$('btn-theme').addEventListener('click', () => {
+  applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+});
+// Set correct icon on load
+applyTheme(localStorage.getItem('cl-theme') || 'dark');
+
+// ── Database list ─────────────────────────────────────────────
+function addDbOption(id, label, select = false) {
+  const sel = $('db-selector');
+  // Remove existing if same id
+  const existing = sel.querySelector(`option[value="${id}"]`);
+  if (existing) existing.remove();
+  const opt = document.createElement('option');
+  opt.value = id; opt.textContent = label;
+  sel.appendChild(opt);
+  if (select) sel.value = id;
+}
+
+async function loadDatabases() {
+  try {
+    const data = await fetch('/api/databases').then(r => r.json());
+    data.databases.forEach(db => addDbOption(db.id, db.label));
+  } catch(e) { showStatus('Failed to load databases: ' + e.message, 'error'); }
+}
+
+// ── Generate diagram ──────────────────────────────────────────
+async function generate() {
+  const db = $('db-selector').value;
+  if (!db) return;
+  $('btn-generate').disabled = true;
+  $('loading').style.display = 'flex';
+  hideStatus();
+  try {
+    const data = await fetch(`/api/lineage?db=${db}`).then(r => r.json());
+    if (data.error) throw new Error(data.error);
+    DiagramEngine.init('#diagram-svg', data.graph);
+    const m = data.metadata;
+    $('meta-badge').textContent = `${m.node_count} objects · ${m.edge_count} edges`;
+    $('btn-export').disabled = false;
+    if (m.parse_warnings?.length)
+      showStatus(`⚠ ${m.parse_warnings.length} parse warning(s) — check console`, 'warn');
+    else
+      showStatus(`✓ ${m.node_count} objects · ${m.edge_count} column relationships`, 'ok');
+    console.info('Parse warnings:', m.parse_warnings);
+  } catch(e) {
+    showStatus('Error: ' + e.message, 'error');
+  } finally {
+    $('btn-generate').disabled = false;
+    $('loading').style.display = 'none';
+  }
+}
+
+// ── Export ────────────────────────────────────────────────────
+async function exportHtml() {
+  const db = $('db-selector').value;
+  $('btn-export').disabled = true;
+  showStatus('Generating export…', 'ok');
+  try {
+    const res  = await fetch(`/api/export?db=${db}`);
+    if (!res.ok) throw new Error(await res.text());
+    const blob = await res.blob();
+    const url  = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = res.headers.get('Content-Disposition')?.match(/filename="?([^"]+)"?/)?.[1]
+               || `lineage_${db}.html`;
+    document.body.appendChild(a); a.click();
+    URL.revokeObjectURL(url); a.remove();
+    showStatus(`✓ Exported: ${a.download}`, 'ok');
+  } catch(e) { showStatus('Export failed: ' + e.message, 'error'); }
+  finally { $('btn-export').disabled = false; }
+}
+
+// ── Status ────────────────────────────────────────────────────
+function showStatus(msg, type) {
+  const el = $('status-bar');
+  el.textContent = msg; el.style.display = 'block';
+  el.style.color = type==='error'?'#F87171': type==='warn'?'#FBBF24':'#4ADE80';
+  if (type !== 'error') setTimeout(hideStatus, 4000);
+}
+function hideStatus() { $('status-bar').style.display = 'none'; }
+
+// ── Lineage info bar ──────────────────────────────────────────
+function makeChip(item) {
+  const c = document.createElement('span');
+  c.className = `lb-chip lb-chip-${item.objectType}`;
+  c.title     = `edge type: ${item.edgeType}`;
+  c.innerHTML = `<span class="lb-chip-obj">${item.nodeId}</span>.<strong>${item.colName}</strong>`;
+  c.addEventListener('click', () => DiagramEngine.selectColumn(item.nodeId, item.colName));
+  return c;
+}
+document.addEventListener('lineage-selected', ({ detail: d }) => {
+  const bar = $('lineage-bar');
+  bar.classList.remove('lb-empty');
+  $('lb-badge').textContent  = d.objectType.toUpperCase();
+  $('lb-badge').style.background = TYPE_COLORS[d.objectType] || '#475569';
+  $('lb-obj').textContent   = d.nodeId;
+  $('lb-col').textContent   = d.colName;
+  $('lb-dtype').textContent = d.dataType;
+  const srcEl = $('lb-sources'); srcEl.innerHTML = '';
+  if (!d.sources.length) srcEl.innerHTML = '<span class="lb-chip lb-chip-none">— base column</span>';
+  else d.sources.forEach(s => srcEl.appendChild(makeChip(s)));
+  const tgtEl = $('lb-targets'); tgtEl.innerHTML = '';
+  if (!d.targets.length) tgtEl.innerHTML = '<span class="lb-chip lb-chip-none">— no downstream</span>';
+  else d.targets.forEach(t => tgtEl.appendChild(makeChip(t)));
+  $('lb-total').textContent = d.totalConnected + ' total connected column(s)';
+});
+document.addEventListener('lineage-cleared', () => {
+  $('lineage-bar').classList.add('lb-empty');
+});
+
+// ── Connection Modal ──────────────────────────────────────────
+const modal = $('conn-modal');
+
+function openModal()  { modal.style.display = 'flex'; setConnStatus(''); }
+function closeModal() { modal.style.display = 'none'; }
+$('btn-connect').addEventListener('click', openModal);
+$('modal-close').addEventListener('click', closeModal);
+modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+
+// Tab switching
+document.querySelectorAll('.conn-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.conn-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.conn-form').forEach(f => f.classList.remove('active'));
+    tab.classList.add('active');
+    $('tab-' + tab.dataset.tab).classList.add('active');
+    setConnStatus('');
+  });
+});
+
+// Auth type toggle (SQL Server)
+document.querySelectorAll('input[name="ss-auth"]').forEach(r =>
+  r.addEventListener('change', () => {
+    $('ss-creds').style.display = r.value === 'sql' ? 'flex' : 'none';
+  })
+);
+
+// JSON drop zone
+const drop  = $('json-drop');
+const fInp  = $('json-file-input');
+let jsonFileData = null;
+
+$('json-pick').addEventListener('click', () => fInp.click());
+drop.addEventListener('click',     ()  => fInp.click());
+drop.addEventListener('dragover',  e  => { e.preventDefault(); drop.classList.add('dragover'); });
+drop.addEventListener('dragleave', ()  => drop.classList.remove('dragover'));
+drop.addEventListener('drop', e => {
+  e.preventDefault(); drop.classList.remove('dragover');
+  handleJsonFile(e.dataTransfer.files[0]);
+});
+fInp.addEventListener('change', () => handleJsonFile(fInp.files[0]));
+
+function handleJsonFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      jsonFileData = { raw: ev.target.result, file };
+      $('json-file-name').textContent = `✓ ${file.name} (${(file.size/1024).toFixed(1)} KB)`;
+      setConnStatus('File loaded — click Connect to add', 'ok');
+    } catch(err) {
+      setConnStatus('Invalid JSON: ' + err.message, 'err');
+    }
+  };
+  reader.readAsText(file);
+}
+
+// Download sample template
+$('dl-sample').addEventListener('click', () => {
+  window.open('/api/sample-json', '_blank');
+});
+
+// Status helper
+function setConnStatus(msg, type) {
+  const el = $('conn-status');
+  el.textContent  = msg;
+  el.className    = 'conn-status ' + (type || '');
+}
+
+// Build payload from active tab
+function activeTab() { return document.querySelector('.conn-tab.active')?.dataset.tab; }
+
+function buildPayload(testOnly) {
+  const tab = activeTab();
+  if (tab === 'sqlite') {
+    return { type:'sqlite', label: $('sqlite-name').value.trim() || 'SQLite DB',
+             path: $('sqlite-path').value.trim(), test_only: testOnly };
+  }
+  if (tab === 'sqlserver') {
+    return { type:'sqlserver',
+             label:    $('ss-name').value.trim() || 'SQL Server',
+             server:   $('ss-server').value.trim(),
+             port:     +$('ss-port').value || 1433,
+             database: $('ss-database').value.trim(),
+             schema:   $('ss-schema').value.trim() || 'dbo',
+             auth_type: document.querySelector('input[name="ss-auth"]:checked')?.value || 'sql',
+             username: $('ss-username').value.trim(),
+             password: $('ss-password').value,
+             test_only: testOnly };
+  }
+  return null; // json handled separately
+}
+
+// Test connection
+$('btn-test').addEventListener('click', async () => {
+  const tab = activeTab();
+  setConnStatus('Testing…', 'loading');
+  try {
+    if (tab === 'json') {
+      if (!jsonFileData) { setConnStatus('Please select a JSON file first.', 'err'); return; }
+      JSON.parse(jsonFileData.raw);   // just validate JSON client-side for test
+      setConnStatus('✓ Valid JSON — click Connect to add.', 'ok'); return;
+    }
+    const payload = buildPayload(true);
+    if (!payload) return;
+    const res  = await fetch('/api/connect', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (data.error) setConnStatus('✗ ' + data.error, 'err');
+    else setConnStatus('✓ Connection successful', 'ok');
+  } catch(e) { setConnStatus('✗ ' + e.message, 'err'); }
+});
+
+// Connect (save + add to dropdown)
+$('btn-do-connect').addEventListener('click', async () => {
+  const tab = activeTab();
+  setConnStatus('Connecting…', 'loading');
+  $('btn-do-connect').disabled = true;
+  try {
+    let data;
+    if (tab === 'json') {
+      if (!jsonFileData) { setConnStatus('Please select a JSON file first.', 'err'); return; }
+      const fd = new FormData();
+      fd.append('file', jsonFileData.file);
+      fd.append('label', $('json-name').value.trim());
+      const res = await fetch('/api/upload-json', { method:'POST', body: fd });
+      data = await res.json();
+    } else {
+      const payload = buildPayload(false);
+      if (!payload) return;
+      const res = await fetch('/api/connect', {
+        method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)
+      });
+      data = await res.json();
+    }
+    if (data.error) { setConnStatus('✗ ' + data.error, 'err'); return; }
+    addDbOption(data.id, data.label, true);
+    setConnStatus(`✓ "${data.label}" added`, 'ok');
+    setTimeout(closeModal, 800);
+  } catch(e) { setConnStatus('✗ ' + e.message, 'err'); }
+  finally { $('btn-do-connect').disabled = false; }
+});
+
+// ── Wire toolbar events ───────────────────────────────────────
+$('btn-generate').addEventListener('click', generate);
+$('btn-reset').addEventListener('click', () => DiagramEngine.resetView());
+$('btn-export').addEventListener('click', exportHtml);
+$('lb-clear').addEventListener('click', () => DiagramEngine.clearSelection());
+$('search-input').addEventListener('input', e => DiagramEngine.filter(e.target.value));
+document.addEventListener('keydown', e => { if (e.key === 'Escape') DiagramEngine.clearSelection(); });
+
+// ── Boot ──────────────────────────────────────────────────────
+loadDatabases();
+</script>
+</body>
+</html>
