@@ -6,6 +6,36 @@ Diagrams can be **exported as self-contained HTML files** that work offline and 
 
 ---
 
+## Screenshots
+
+### Dark Theme — Full Diagram
+![Dark theme diagram showing 13 nodes and 75 column relationships across HR domain tables, views and stored procedures](screenshots/01_dark_diagram.png)
+
+### Light Theme
+![Light theme version of the same diagram](screenshots/02_light_diagram.png)
+
+### Column Selection — Lineage Bar
+> Click `employees.salary` to instantly trace all 18 downstream columns across views and stored procedures.
+
+![Lineage bar showing employees.salary selected with upstream sources and downstream targets displayed as chips](screenshots/03_column_selected.png)
+
+### Search / Filter
+> Type `salary` to isolate only salary-related objects and hide everything else.
+
+![Diagram filtered to show only salary-related tables and views](screenshots/04_search_filter.png)
+
+### Connect to JSON Metadata
+> Upload any `.json` file describing your database objects — no live DB connection needed.
+
+![Connection modal on the JSON Metadata tab with a drag-and-drop upload zone](screenshots/05_connection_modal.png)
+
+### Zoomed Node Detail
+> Scroll to zoom in and inspect individual column names and data types.
+
+![Zoomed view of regions, countries, locations tables flowing into v_employee_details and v_high_earners views](screenshots/06_zoomed_nodes.png)
+
+---
+
 ## Table of Contents
 
 1. [Features](#features)
